@@ -17,7 +17,7 @@ all: $(PROGS)
 $(OBJS)/%.o: $(SRC)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-main : $(OBJS)/*.o
+main : $(OBJS)/main.o $(OBJS)/list.o $(OBJS)/page.o $(OBJS)/util.o $(OBJS)/multiprocess.o
 	$(CC) $^ -o $@
 
 .PHONY: all clean
