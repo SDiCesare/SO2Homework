@@ -19,9 +19,11 @@ In aggiunta, si può eseguire il programma con le seguenti opzioni:
 
 ## Esempio di utilizzo
 > ./main 20 7 canzone.txt
+
 Il programma formatterà il testo all'interno del file "canzone.txt" con pagine da 1 colonna di dimensioni 20x7.
 
 > ./main -c 5 15 5 canzone.txt
+
 Il programma formatterà il testo all'interno del file "canzone.txt" con pagine da 5 colonna di dimensioni 15x5.
 
 # Dettagli del Programma
