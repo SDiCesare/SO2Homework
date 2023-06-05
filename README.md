@@ -22,9 +22,13 @@ In aggiunta, si può eseguire il programma con le seguenti opzioni:
 
 Il programma formatterà il testo all'interno del file "canzone.txt" con pagine da 1 colonna di dimensioni 20x7.
 
-> ./main -c 5 15 5 canzone.txt
+> ./main -c 5 15 5 /home/User/tesi.txt
 
-Il programma formatterà il testo all'interno del file "canzone.txt" con pagine da 5 colonna di dimensioni 15x5.
+Il programma formatterà il testo all'interno del file "/home/User/tesi.txt" con pagine da 5 colonna di dimensioni 15x5.
+
+> ./main -mp -s 10 -o pagina.txt 20 10 testo.txt
+
+Il programma formatterà il testo all'interno del file "testo.txt" con pagine da 1 colonna, oguna distante 10 spazi con le altre, di dimensioni 20x10. L'output verrà salvato nel file "pagina.txt"
 
 # Dettagli del Programma
 Il programma si divide in 4 file:
