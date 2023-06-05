@@ -113,12 +113,32 @@ void printPage(Page* page);
 void printPageOn(Page* page, FILE* strm);
 
 /**
- * 
+ * Serialize a page as a characters array.
+ * |--------|---------------|
+ * | Offset | 	  Data	    |
+ * |------------------------|
+ * |  0x00	|  Buffer Size  |
+ * |  0x04  | Section Count |
+ * |  0x08  | Section Width |
+ * |  0x0C  |Section Height |
+ * |  0x10  |    Spacing    |
+ * |  0x14  |   Cursor X    |
+ * |  0x18  |   Cursor Y    |
+ * |  0x1C  |Cursor Section |
+ * |  0x20  |  Line Structs |
+ * |--------|---------------|
+ * The Line Struct is divided int the first 4 bytes that rapresents the length of the line, than the content of the n-length line.
+ * The Page contains 
+ * @param page: The page to serialize.
+ * @return a char array that represents the page. The first 4 byte in the array is the length of the array.
  * */
 char* serializePage(Page* page);
 
 /**
- * 
+ * Deserialize a characters array into a Page.
+ * The first 4 byte in the array is the length of the array.
+ * @param data: The characters array.
+ * @return a Page represented by the char array.
  * */
 Page* deserializePage(char* data);
 

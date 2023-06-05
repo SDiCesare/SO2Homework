@@ -8,10 +8,27 @@
 #include"multiprocess.h"
 
 void badUsageError() {
-	printf("Bad Usage\nTry './main --help' for more information.\n");
+	printf("Bad Usage\nTry running with -h or --help for more information.\n");
 	exit(0);
 }
 
+
+/**
+ * Read the terminal arguments for running this program.
+ * Options:
+ * -c <int>: Specify the number of columns for the output file
+ * -s <int>: Specify the number of blank spaces between 2 columns.
+ * -o <file>: Specify the output file in which the formatted text is printed.
+ * -mp --multiprocess: Will run the program as multiprocess
+ * -h --help: Print information about the usage.
+ * Parameters:
+ * width <int>: The number of character per row.
+ * height <int>: The number of row per column.
+ * file <file>: The file from which the text is read.
+ * 
+ * @param argc: The argument count from terminal
+ * @param argv: The arguments from terminal
+ * */
 Arguments handleTerminalArguments(int argc, char* argv[]) {
 	Arguments arguments;// = (Arguments*)malloc(sizeof(Arguments));
 	if (argc == 2) {
@@ -73,32 +90,37 @@ int main(int argc, char* argv[]) {
 	}
 	// printf("%d, %d, %d, %d, %s, %s\n", arguments.sections, arguments.width, arguments.height, arguments.spacing, arguments.inputFile, arguments.outputFile);
 	Page* page = createPage(arguments.sections, arguments.width, arguments.height, arguments.spacing);
+	// Open files
 	FILE *out;
 	if (arguments.outputFile == "stdout") {
 		out = stdout;
 	} else {
 		out = fopen(arguments.outputFile, "w+");
 	}
+	if (out == 0) {
+		printf("Can't open output file '%s'\n", arguments.outputFile);
+		return -1;
+	}
 	FILE *fptr;
 	fptr = fopen(arguments.inputFile, "r");
 	if (fptr == 0) {
-		printf("Can't open file %s!\n", arguments.inputFile);
+		printf("Can't open input file %s!\n", arguments.inputFile);
 		return -1;
 	}
-	// printf("%ld\n", getFileSize(fptr));
+	// Create word info
 	char* word = calloc(arguments.width + 1, sizeof(char));
 	int wordSize = arguments.width + 1;
 	int wordIndex = 0;
 	int errorFlag = 0;
+	printf("Computing File '%s'\n", arguments.inputFile);
 	while (!feof(fptr)) {
 		char c = fgetc(fptr);
 		if (c == 32 || c == 10) { // We reached a word separator.
 			if (wordIndex == 0) { // We have no word yet.
 				continue;
 			}
-			// printf("Separator: '%s'\n", word);
 			int inserted = insertWord(word, strlen(word), page);
-			if (!inserted) {
+			if (!inserted) { // If the word doesn't fit in the page, the page is full
 				printPageOn(page, out);
 				freePage(page);
 				page = createPage(arguments.sections, arguments.width, arguments.height, arguments.spacing);
@@ -128,11 +150,18 @@ int main(int argc, char* argv[]) {
 			break;
 		}
 	}
-	fclose(fptr);
+	int closed = fclose(fptr);
+	if (closed != 0) {
+		printf("Error Closing Input File '%s'\n", arguments.inputFile);
+		return -1;
+	}
 	if (errorFlag) {
 		return -1;
 	} else {
 		printPageOn(page, out);
+		if (strcmp(arguments.outputFile, "stdout") != 0) {
+			printf("File '%s' created successfully!\n", arguments.outputFile);
+		}
 		return 0;
 	}
 }

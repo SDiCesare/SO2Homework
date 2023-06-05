@@ -9,7 +9,13 @@
 #include"util.h"
 #include"page.h"
 
-void checkPid(int pid) {
+/**
+ * Checks if the pid is a valid process ID.
+ * If its not valid, than the program is closed instantly.
+ * 
+ * @param pid: The Process ID
+ * */
+void checkPid(pid_t pid) {
 	if (pid < 0) {
 		printf("Error While Generating Process.\n");
 		exit(-1);
@@ -17,6 +23,7 @@ void checkPid(int pid) {
 }
 
 void runMultiprocessingExecution(Arguments arguments) {
+	// Open pipes for process
 	// Side 0 is for reading. Side 1 is for writing.
 	int wordPipe[2];
 	int pagePipe[2];
@@ -30,19 +37,19 @@ void runMultiprocessingExecution(Arguments arguments) {
 	}
 	pid_t pid = fork();
 	checkPid(pid);
-	if (pid == 0) {
+	if (pid == 0) { // Firs fork runs the reading process
 		runReadingProcess(arguments, wordPipe);
 	} else {
 		pid = fork();
 		checkPid(pid);
-		if (pid == 0) {
+		if (pid == 0) { // Second fork runs the computing process
 			runComputingProcess(arguments, wordPipe, pagePipe);
 		} else {
 			pid = fork();
 			checkPid(pid);
-			if (pid == 0) {
+			if (pid == 0) { // Third fork runs the writing process
 				runWritingProcess(arguments, pagePipe);
-			} else {
+			} else { // The father waits the three processes to close. If one ends with an error, the father kills all the other processes. 
 				pid_t wpid;
 				int status = 0;
 				while ((wpid = wait(&status)) > 0) { // We are waiting for all the procss to finish
@@ -63,10 +70,11 @@ void runReadingProcess(Arguments arguments, int wordPipe[]) {
 	FILE* inputFile;
 	inputFile = fopen(arguments.inputFile, "r");
 	if (inputFile == 0) {
+		 // We end the comunication by sending a -1
 		printf("Can't open file %s!\n");
 		int value = -1;
 		write(wordPipe[1], &value, sizeof(int));
-		close(wordPipe[1]); // We ended comunication by sending a -1
+		close(wordPipe[1]);
 		exit(-1);
 	}
 	char* word = calloc(arguments.width  + 1, sizeof(char));
@@ -80,16 +88,16 @@ void runReadingProcess(Arguments arguments, int wordPipe[]) {
 				continue;
 			}
 			int size = strlen(word);
-			// printf("Sending Word '%s'\n", word);
 			write(wordPipe[1], &size, sizeof(int)); // We send the length of the string.
-			write(wordPipe[1], word, strlen(word)); // We send the word to the ComputingProcess
+			write(wordPipe[1], word, strlen(word)); // We send the word to the computingProcess
 			free(word);
 			word = calloc(arguments.width + 1, sizeof(char));
 			if (!word) {
+				// We end the comunication by sending a -1
 				printf("Can't reallocate memory, Aborting!\n");
 				int value = -1;
 				write(wordPipe[1], &value, sizeof(int));
-				close(wordPipe[1]); // We ended comunication by sending a -1
+				close(wordPipe[1]);
 				exit(-1);
 			}
 			wordSize = arguments.width + 1;
@@ -104,14 +112,16 @@ void runReadingProcess(Arguments arguments, int wordPipe[]) {
 			wordIndex++;
 		}
 		if (u8strlen(word) > arguments.width) { // Word too big, abort!
+			// We end the comunication by sending a -1
 			printf("Encountered a word with length grater than the specified width (%d). Aborting.\n", u8strlen(word));
 			int value = -1;
 			write(wordPipe[1], &value, sizeof(int));
-			close(wordPipe[1]); // We ended comunication by sending a -1
+			close(wordPipe[1]);
 			exit(-1);
 		}
 	}
 	printf("File readed. Reading Process Closed!\n");
+	// We send a 0 to indicate that the pipe is closed.
 	int value = 0;
 	write(wordPipe[1], &value, sizeof(int));
 	close(wordPipe[1]);
@@ -130,20 +140,18 @@ void runComputingProcess(Arguments arguments, int wordPipe[], int pagePipe[]) {
 		if (byteRead == 0) {
 			continue; // No int signal received
 		}
-		// printf("Received signal %d\n", signal);
 		if (signal < 0) { // Error From Reading Process. Aborting!
 			printf("Error On Reading Process, Aborting Computing!\n");
 			close(wordPipe[0]);
 			write(pagePipe[1], &signal, sizeof(int));
 			close(pagePipe[1]);
 			exit(-1);
-		} else if (signal == 0) { // File complitely readed. Ending!
+		} else if (signal == 0) { // File complitely readed. Ending.
 			break;
 		}
 		// In the signal is > 0, than is the length of the word received
 		word = (char*)calloc(signal, sizeof(char));
 		byteRead = read(wordPipe[0], word, signal);
-		// printf("Signal: %d\nByte  : %d\n", signal, byteRead);
 		if (byteRead < signal) { // Error while receiving the word, Aborting!
 			printf("Error while reading pipe for word. Sended %d bytes, Received %d!\n", signal, byteRead);
 			signal = -1;
@@ -152,13 +160,11 @@ void runComputingProcess(Arguments arguments, int wordPipe[], int pagePipe[]) {
 			close(pagePipe[1]);
 			exit(-1);
 		}
-		// printf("Received Word '%s'\n", word);
 		int inserted = insertWord(word, strlen(word), page);
 		if (!inserted) {
-			// Sending page to Writing Process.
+			// Serializing and Sending page to Writing Process.
 			char* data = serializePage(page);
 			int size = getInt(data, 0);
-			// printf("Sending Page Size: %d\n", size);
 			write(pagePipe[1], &size, sizeof(int));
 			write(pagePipe[1], data, size);
 			freePage(page);
@@ -166,6 +172,7 @@ void runComputingProcess(Arguments arguments, int wordPipe[], int pagePipe[]) {
 			inserted = insertWord(word, strlen(word), page);
 			if (!inserted) { // Should not happend unless the page was allocated uncorrectly
 				printf("There was an error while creating a new page.\nAborting!\n");
+				signal = -1;
 				close(wordPipe[0]);
 				write(pagePipe[1], &signal, sizeof(int));
 				close(pagePipe[1]);
@@ -181,7 +188,7 @@ void runComputingProcess(Arguments arguments, int wordPipe[], int pagePipe[]) {
 	int size = getInt(data, 0);
 	write(pagePipe[1], &size, sizeof(int));
 	write(pagePipe[1], data, size);
-	// Sending Ending Signal
+	// We send a 0 to indicate that the pipe is closed.
 	signal = 0;
 	write(pagePipe[1], &signal, sizeof(int));
 	close(pagePipe[1]);
@@ -189,13 +196,18 @@ void runComputingProcess(Arguments arguments, int wordPipe[], int pagePipe[]) {
 }
 
 void runWritingProcess(Arguments arguments, int pagePipe[]) {
-	close(pagePipe[1]); // We close the writing side for the reading process.
 	FILE *outputFile;
 	if (arguments.outputFile == "stdout") {
 		outputFile = stdout;
 	} else {
 		outputFile = fopen(arguments.outputFile, "w+");
 	}
+	if (outputFile == 0) { // Can't work on output file. Aborting!
+		printf("Can't open output file '%s'\n", arguments.outputFile);
+		close(pagePipe[1]);
+		exit(-1);
+	}
+	close(pagePipe[1]); // We close the writing side for the reading process.
 	int signal, byteRead;
 	char* buffer;
 	Page* page;
@@ -204,7 +216,6 @@ void runWritingProcess(Arguments arguments, int pagePipe[]) {
 		if (byteRead == 0) {
 			continue; // No int signal received
 		}
-		// printf("Received signal %d\n", signal);
 		if (signal < 0) { // Error From Computing Process. Aborting!
 			printf("Error On Computing Process, Aborting Writing!\n");
 			close(pagePipe[1]);
@@ -212,7 +223,7 @@ void runWritingProcess(Arguments arguments, int pagePipe[]) {
 		} else if (signal == 0) { // No more Page to write. Ending!
 			break;
 		}
-		// In the signal is > 0, than is the length of the serialized data of the Page sended.
+		// If the signal is > 0, than is the length of the serialized data of the Page sended.
 		buffer = (char*)calloc(signal, sizeof(char));
 		byteRead = read(pagePipe[0], buffer, signal);
 		if (byteRead < signal) {
@@ -221,9 +232,9 @@ void runWritingProcess(Arguments arguments, int pagePipe[]) {
 			exit(-1);
 		}
 		page = deserializePage(buffer);
-		// printf("Page Deserialized!\n");
 		printPageOn(page, outputFile);
 		freePage(page);
+		free(buffer);
 	}
 	printf("Writing Process Ended.\n");
 	close(pagePipe[0]);

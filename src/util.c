@@ -31,13 +31,6 @@ int u8strlen(const char* str) {
 	return len;
 }
 
-long int getFileSize(FILE* file) {
-	fseek(file, 0L, SEEK_END);
-	long int size = ftell(file);
-	rewind(file);
-	return size;
-}
-
 void printHelp() {
 	printf("Usage: ./main [OPTIONS] width height file\n");
 	printf("Options:\n");
@@ -84,11 +77,4 @@ int getInt(char* data, int* offset) {
 		*offset = *offset + 4;
 		return n;
 	}
-}
-
-
-int getIntFromPipe(int pipe[]) {
-	char data[4];
-	read(pipe[0], data, 4);
-	return getInt(data, 0);
 }
